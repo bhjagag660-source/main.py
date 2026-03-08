@@ -1,395 +1,462 @@
+# -*- coding: utf-8 -*-
 import telebot
-from telebot.types import *
+from telebot import types
 import json
 import os
+from datetime import datetime
 import time
 
-TOKEN = "8694381551:AAGDXVrMM6cWRDJUpnIFyB0iWxkUkaBv9LE"
-
+TOKEN = "8694381551:AAH6APfePsmisywAYMRk9CnukF6WCNoask0"
 bot = telebot.TeleBot(TOKEN)
 
-ADMINS = [8451593028, 8434939976]
+# === SABITLER ===
+BOT_USERNAME = "AhmetMarketBot"
+YENI_ADMIN_USERNAME = "Hakikiyetsiz"
+ADMINLER = ["8434939976", "8451593028"]
+ZORUNLU_GRUP_ID = -1003525217103
+ZORUNLU_GRUP_LINK = "https://t.me/+2YhZmp5RKD8xZjg8"
 
-KANAL1_ID = -1003525217103
-KANAL1_LINK = "https://t.me/+2YhZmp5RKD8xZjg8"
+ZORUNLU_KANALLAR = [
+    {"link": "https://t.me/+2YhZmp5RKD8xZjg8", "id": -1003525217103},
+    {"link": "https://t.me/+ge4oDY3JKhc0Y2Yy", "id": -1003590768175}
+]
 
-KANAL2_ID = -1003590768175
-KANAL2_LINK = "https://t.me/+ge4oDY3JKhc0Y2Yy"
+URUNLER = {
+    "pubg_hesap": {"ad": "Pubg Hesap", "fiyat": 10, "aciklama": "PUBG hesap teslim edilir."},
+    "tiktok_hit": {"ad": "Tiktok Hit", "fiyat": 5, "aciklama": "Tiktok videonuz icin etkilesim."},
+    "wp_no": {"ad": "Wp No", "fiyat": 12, "aciklama": "WhatsApp onayli numara."},
+    "tg_no": {"ad": "Tg No", "fiyat": 20, "aciklama": "Telegram onayli numara."},
+    "cpm_kesin": {"ad": "Cpm Kesin", "fiyat": 5, "aciklama": "CPM garantili hizmet."},
+    "insta_eski": {"ad": "Insta Eski Kurulum", "fiyat": 7, "aciklama": "Eski kurulum Instagram hesabi."},
+    "tiktok_yuksek_hit": {"ad": "Tiktok 2-10k Hit", "fiyat": 15, "aciklama": "Tiktok icin yuksek hit."},
+    "wp_cekme_bot": {"ad": "Sinirsiz Wp Cekme Bot", "fiyat": 17, "aciklama": "Sinirsiz WP numara cekme botu."},
+    "100_emoji": {"ad": "100 Emoji", "fiyat": 10, "aciklama": "100 adet emoji etkilesimi."},
+    "pubg_buzdiyari": {"ad": "Pubg Buzdiyari Random", "fiyat": 15, "aciklama": "Buzdiyari garantili random hesap."},
+    "blutv_giris": {"ad": "Blutv Kesin Giris", "fiyat": 8, "aciklama": "Kesin giris garantili BluTV hesabi."},
+    "exxen_giris": {"ad": "Exxen Kesin Giris", "fiyat": 5, "aciklama": "Kesin giris garantili Exxen hesabi."},
+    "netflix": {"ad": "Netflix", "fiyat": 6, "aciklama": "Netflix izleme profili/hesabi."},
+    "valorant": {"ad": "Valorant", "fiyat": 10, "aciklama": "Valorant random hesap teslimi."},
+    "live_civciv": {"ad": "Live Civciv", "fiyat": 10, "aciklama": "Canli civciv hizmeti."},
+    "idefix_hit": {"ad": "Idefix Hit", "fiyat": 5, "aciklama": "Idefix icin hit gonderimi."},
+    "disney_plus": {"ad": "Disney+", "fiyat": 5, "aciklama": "Disney+ hesap/profil erisimi."},
+    "pubg_uc": {"ad": "Pubg UC", "fiyat": 8, "aciklama": "PUBG UC teslim edilir."}
+}
 
-LOG_CHANNEL = -1003706600695
+if not os.path.exists("kullanicilar.json"):
+    with open("kullanicilar.json", "w") as f:
+        json.dump({}, f)
 
-DB_FILE = "db.json"
-
-if not os.path.exists(DB_FILE):
-    with open(DB_FILE, "w") as f:
-        json.dump({
-            "users": {},
-            "banned": [],
-            "stats": {
-                "joins": 0,
-                "purchases": 0
-            }
-        }, f)
-
-def load_db():
-    with open(DB_FILE) as f:
-        data = json.load(f)
-
-    if "users" not in data:
-        data["users"] = {}
-
-    if "banned" not in data:
-        data["banned"] = []
-
-    if "stats" not in data:
-        data["stats"] = {"joins":0,"purchases":0}
-
-    return data
-
-def save_db(data):
-    with open(DB_FILE, "w") as f:
-        json.dump(data, f, indent=2)
-
-def get_user(uid):
-
-    db = load_db()
-
-    uid = str(uid)
-
-    if uid not in db["users"]:
-
-        db["users"][uid] = {
-            "ref": 0,
-            "invited": None,
-            "join_time": int(time.time()),
-            "purchases": 0
-        }
-
-        db["stats"]["joins"] += 1
-
-        save_db(db)
-
-    return db["users"][uid]
-
-def update_user(uid, datau):
-
-    db = load_db()
-
-    db["users"][str(uid)] = datau
-
-    save_db(db)
-
-def is_banned(uid):
-
-    db = load_db()
-
-    return uid in db["banned"]
-
-def ban_user(uid):
-
-    db = load_db()
-
-    if uid not in db["banned"]:
-
-        db["banned"].append(uid)
-
-        save_db(db)
-
-def unban_user(uid):
-
-    db = load_db()
-
-    if uid in db["banned"]:
-
-        db["banned"].remove(uid)
-
-        save_db(db)
-
-def check_join(uid):
-
+def load_users():
     try:
-
-        s1 = bot.get_chat_member(KANAL1_ID, uid).status
-        s2 = bot.get_chat_member(KANAL2_ID, uid).status
-
-        if s1 in ["member","administrator","creator"] and s2 in ["member","administrator","creator"]:
-
-            return True
-
+        with open("kullanicilar.json", "r") as f:
+            return json.load(f)
     except:
-        pass
+        return {}
 
-    return False
+def save_users(data):
+    with open("kullanicilar.json", "w") as f:
+        json.dump(data, f, indent=4)
 
-def join_keyboard():
-
-    kb = InlineKeyboardMarkup()
-
-    kb.add(InlineKeyboardButton("KANAL 1", url=KANAL1_LINK))
-
-    kb.add(InlineKeyboardButton("KANAL 2", url=KANAL2_LINK))
-
-    kb.add(InlineKeyboardButton("Kontrol", callback_data="join_check"))
-
-    return kb
-
-def main_menu():
-
-    kb = ReplyKeyboardMarkup(resize_keyboard=True)
-
-    kb.row("🛒 Market")
-
-    kb.row("👤 Profil","👥 Referans")
-
-    kb.row("👑 Liderlik")
-
-    kb.row("⚙️ Admin")
-
-    return kb
-
-PRODUCTS = {
-"urun1":10,
-"urun2":5,
-"urun3":10,
-"urun4":20,
-"urun5":5,
-"urun6":7,
-"urun7":13,
-"urun8":17,
-"urun9":10,
-"urun10":15,
-"urun11":8,
-"urun12":5,
-"urun13":6,
-"urun14":10,
-"urun15":10,
-"urun16":5,
-"urun17":15,
-"urun18":25,
-"urun19":7,
-"urun20":20,
-"urun21":5,
-"urun22":25
-}
-
-PRODUCT_NAMES = {
-"urun1":"Pubg hesap",
-"urun2":"Tiktok hit",
-"urun3":"WhatsApp numara",
-"urun4":"Telegram numara",
-"urun5":"Car parking",
-"urun6":"Instagram hit",
-"urun7":"Tiktok takipçi",
-"urun8":"WhatsApp bot",
-"urun9":"100 emoji",
-"urun10":"Pubg random",
-"urun11":"BluTV",
-"urun12":"Exxen",
-"urun13":"Netflix",
-"urun14":"Valorant",
-"urun15":"Live civciv",
-"urun16":"İdefix",
-"urun17":"40k civciv",
-"urun18":"Telegram OTP",
-"urun19":"Pubg UC",
-"urun20":"Pubg 8100 UC",
-"urun21":"Steam",
-"urun22":"200₺ Play Kod"
-}
-
-def market_keyboard():
-
-    kb = InlineKeyboardMarkup()
-
-    for key in PRODUCTS:
-
-        price = PRODUCTS[key]
-
-        name = PRODUCT_NAMES[key]
-
-        kb.add(InlineKeyboardButton(f"{name} - {price} ref", callback_data=key))
-
-    return kb
-
-@bot.message_handler(commands=['start'])
-def start(message):
-
-    uid = message.from_user.id
-
-    if is_banned(uid):
-        return
-
-    if not check_join(uid):
-
-        bot.send_message(uid,"Kanallara katıl",reply_markup=join_keyboard())
-
-        return
-
-    args = message.text.split()
-
-    user = get_user(uid)
-
-    if len(args) > 1:
-
-        ref = args[1]
-
-        db = load_db()
-
-        if ref != str(uid) and user["invited"] is None:
-
-            if ref in db["users"]:
-
-                db["users"][ref]["ref"] += 1
-
-                user["invited"] = ref
-
-                db["users"][str(uid)] = user
-
-                save_db(db)
-
-    bot.send_message(uid,"Hoşgeldin",reply_markup=main_menu())
-
-@bot.message_handler(func=lambda m: m.text == "🛒 Market")
-def open_market(m):
-
-    bot.send_message(m.chat.id,"Market",reply_markup=market_keyboard())
-
-@bot.message_handler(func=lambda m: m.text == "👤 Profil")
-def profile(m):
-
-    user = get_user(m.from_user.id)
-
-    text = f"""
-ID: {m.from_user.id}
-Ref: {user['ref']}
-Satın alma: {user['purchases']}
-"""
-
-    bot.send_message(m.chat.id,text)
-
-@bot.message_handler(func=lambda m: m.text == "👥 Referans")
-def ref_link(m):
-
-    uid = m.from_user.id
-
-    link = f"https://t.me/{bot.get_me().username}?start={uid}"
-
-    bot.send_message(uid,link)
-
-@bot.message_handler(func=lambda m: m.text == "👑 Liderlik")
-def leaderboard(m):
-
-    db = load_db()
-
-    users = db["users"]
-
-    ranking = sorted(users.items(),key=lambda x:x[1]["ref"],reverse=True)[:20]
-
-    text = "🏆 TOP 20\n"
-
-    i = 1
-
-    for u in ranking:
-
-        text += f"{i}. {u[0]} - {u[1]['ref']} ref\n"
-
-        i += 1
-
-    bot.send_message(m.chat.id,text)
-
-@bot.message_handler(func=lambda m: m.text == "⚙️ Admin")
-def admin_panel(m):
-
-    if m.from_user.id not in ADMINS:
-        return
-
-    kb = InlineKeyboardMarkup()
-
-    kb.add(InlineKeyboardButton("📊 İstatistik",callback_data="admin_stats"))
-
-    kb.add(InlineKeyboardButton("🚫 Ban",callback_data="admin_ban"))
-
-    kb.add(InlineKeyboardButton("♻️ Unban",callback_data="admin_unban"))
-
-    kb.add(InlineKeyboardButton("📢 Duyuru",callback_data="admin_broadcast"))
-
-    bot.send_message(m.chat.id,"Admin Panel",reply_markup=kb)
-
-@bot.callback_query_handler(func=lambda call: True)
-def callbacks(call):
-
-    uid = call.from_user.id
-
-    if call.data == "join_check":
-
-        if check_join(uid):
-
-            bot.send_message(uid,"Doğrulandı",reply_markup=main_menu())
-
-        else:
-
-            bot.answer_callback_query(call.id,"Kanallara katıl")
-
-    if call.data in PRODUCTS:
-
-        user = get_user(uid)
-
-        price = PRODUCTS[call.data]
-
-        name = PRODUCT_NAMES[call.data]
-
-        if user["ref"] < price:
-
-            bot.answer_callback_query(call.id,"Yetersiz ref")
-
-            return
-
-        user["ref"] -= price
-
-        user["purchases"] += 1
-
-        update_user(uid,user)
-
-        db = load_db()
-
-        db["stats"]["purchases"] += 1
-
-        save_db(db)
-
-        bot.send_message(uid,f"Satın aldınız: {name}")
-
-        for admin in ADMINS:
-
-            bot.send_message(admin,f"Yeni satın alma\nUser:{uid}\nÜrün:{name}")
-
+def kanallarda_mi(user_id):
+    for kanal in ZORUNLU_KANALLAR:
         try:
+            member = bot.get_chat_member(kanal["id"], user_id)
+            if member.status not in ["member", "administrator", "creator"]:
+                return False
+        except Exception as e:
+            print("Kanal hata: " + str(e))
+            return False
+    return True
 
-            bot.send_message(LOG_CHANNEL,f"SATIN ALMA {uid} {name}")
+def grupta_mi(user_id):
+    try:
+        member = bot.get_chat_member(ZORUNLU_GRUP_ID, user_id)
+        return member.status in ["member", "administrator", "creator"]
+    except:
+        return False
 
+def ensure_user(uid, username=None, first_name=None):
+    data = load_users()
+    if uid not in data:
+        data[uid] = {
+            "puan": 0,
+            "referans_veren": None,
+            "referans_getirdigi": [],
+            "referans_sayisi": 0,
+            "username": username or "",
+            "isim": first_name or "",
+            "kayit_tarihi": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "son_aktif": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "grup_kontrol": False,
+            "satin_aldiklari": []
+        }
+        save_users(data)
+    else:
+        data[uid]["son_aktif"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if username:
+            data[uid]["username"] = username
+        if first_name:
+            data[uid]["isim"] = first_name
+        save_users(data)
+    return data[uid]
+
+def ana_menu(chat_id, yeni_kullanici=False):
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    for urun_id, urun in URUNLER.items():
+        markup.add(types.InlineKeyboardButton(
+            urun["ad"] + " - " + str(urun["fiyat"]) + " Puan",
+            callback_data="urun_" + urun_id
+        ))
+    markup.add(
+        types.InlineKeyboardButton("Puan Durumu", callback_data="puan_durumu"),
+        types.InlineKeyboardButton("Referans Linkim", callback_data="ref_link")
+    )
+    markup.add(
+        types.InlineKeyboardButton("Gruba Katil", url=ZORUNLU_GRUP_LINK),
+        types.InlineKeyboardButton("Admin @" + YENI_ADMIN_USERNAME, url="https://t.me/" + YENI_ADMIN_USERNAME)
+    )
+    if yeni_kullanici:
+        bot.send_message(
+            chat_id,
+            "*Hos Geldin!*\n\nUrunlerden satin alabilirsin:\n10 Tepki = 1 Puan\n50 Uye = 5 Puan\n\nButonlari kullanarak islem yapabilirsin:",
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+    else:
+        bot.send_message(chat_id, "*Ana Menu*\n\nIslem sec:", reply_markup=markup, parse_mode="Markdown")
+
+@bot.message_handler(commands=["start"])
+def start(message):
+    uid = str(message.from_user.id)
+    username = message.from_user.username or ""
+    first_name = message.from_user.first_name or ""
+    args = message.text.split()
+    referans_id = None
+    if len(args) > 1:
+        referans_id = args[1]
+        if referans_id == uid:
+            referans_id = None
+    ensure_user(uid, username, first_name)
+    data = load_users()
+    if not grupta_mi(uid):
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton("Gruba Katil", url=ZORUNLU_GRUP_LINK))
+        markup.add(types.InlineKeyboardButton("Katildim Kontrol Et", callback_data="grup_kontrol"))
+        bot.send_message(
+            uid,
+            "*ZORUNLU GRUP*\n\nBu botu kullanmak icin once gruba katilmalisin:\n\n" + ZORUNLU_GRUP_LINK,
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+        return
+    if referans_id and data.get(uid) and data[uid].get("referans_veren") is None:
+        ref_id = str(referans_id)
+        if ref_id in data:
+            data[ref_id]["puan"] = data[ref_id].get("puan", 0) + 1
+            data[ref_id]["referans_sayisi"] = data[ref_id].get("referans_sayisi", 0) + 1
+            if "referans_getirdigi" not in data[ref_id]:
+                data[ref_id]["referans_getirdigi"] = []
+            data[ref_id]["referans_getirdigi"].append(uid)
+            data[uid]["referans_veren"] = ref_id
+            try:
+                bot.send_message(ref_id,
+                    "*Yeni Referans Kazandin!*\n\n" + first_name + " senin referansinla katildi!\n+1 Puan kazandin!",
+                    parse_mode="Markdown")
+            except Exception as e:
+                print("Bildirim hatasi: " + str(e))
+        data[uid]["puan"] = data[uid].get("puan", 0) + 1
+        data[uid]["referans_veren"] = referans_id
+        save_users(data)
+        ana_menu(uid, yeni_kullanici=True)
+    else:
+        ana_menu(uid)
+
+@bot.callback_query_handler(func=lambda call: call.data == "grup_kontrol")
+def grup_kontrol_callback(call):
+    uid = str(call.from_user.id)
+    if grupta_mi(uid):
+        bot.answer_callback_query(call.id, "Gruba katilmissin! Devam edebilirsin.")
+        bot.delete_message(call.message.chat.id, call.message.message_id)
+        ana_menu(uid)
+    else:
+        bot.answer_callback_query(call.id, "Hala gruba katilmadin!", show_alert=True)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("urun_"))
+def urun_sec(call):
+    uid = str(call.from_user.id)
+    urun_id = call.data.replace("urun_", "")
+    if urun_id not in URUNLER:
+        bot.answer_callback_query(call.id, "Urun bulunamadi!")
+        return
+    urun = URUNLER[urun_id]
+    data = load_users()
+    user_data = data.get(uid, {"puan": 0})
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("Onayla", callback_data="onayla_" + urun_id),
+        types.InlineKeyboardButton("Iptal", callback_data="ana_menu_don")
+    )
+    bot.edit_message_text(
+        "*" + urun["ad"] + "*\n\n" + urun["aciklama"] + "\n\nFiyat: " + str(urun["fiyat"]) + " Puan\nMevcut Puanin: " + str(user_data.get("puan", 0)) + "\n\nSatin almayi onayliyor musun?",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+    bot.answer_callback_query(call.id)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("onayla_"))
+def urun_onayla(call):
+    uid = str(call.from_user.id)
+    urun_id = call.data.replace("onayla_", "")
+    if urun_id not in URUNLER:
+        bot.answer_callback_query(call.id, "Urun bulunamadi!")
+        return
+    urun = URUNLER[urun_id]
+    data = load_users()
+    if uid not in data:
+        bot.answer_callback_query(call.id, "Kullanici bulunamadi!")
+        return
+    if data[uid]["puan"] < urun["fiyat"]:
+        bot.answer_callback_query(call.id, "Yetersiz puan! Gerekli: " + str(urun["fiyat"]), show_alert=True)
+        return
+    data[uid]["puan"] -= urun["fiyat"]
+    data[uid]["satin_aldiklari"] = data[uid].get("satin_aldiklari", []) + [{
+        "urun": urun["ad"],
+        "tarih": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "fiyat": urun["fiyat"]
+    }]
+    save_users(data)
+    for admin in ADMINLER:
+        try:
+            admin_markup = types.InlineKeyboardMarkup()
+            admin_markup.add(types.InlineKeyboardButton(
+                "@" + data[uid].get("username", "Kullanici"),
+                url="tg://user?id=" + uid
+            ))
+            bot.send_message(
+                admin,
+                "*YENI SATIN ALMA*\n\nKullanici: " + data[uid].get("isim", "") + " (@" + data[uid].get("username", "yok") + ")\nID: `" + uid + "`\nUrun: " + urun["ad"] + "\nFiyat: " + str(urun["fiyat"]) + " Puan\nTarih: " + datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+                reply_markup=admin_markup,
+                parse_mode="Markdown"
+            )
         except:
             pass
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Urun Teslim", url="https://t.me/" + YENI_ADMIN_USERNAME))
+    markup.add(types.InlineKeyboardButton("Ana Menu", callback_data="ana_menu_don"))
+    bot.edit_message_text(
+        "*Satin Alma Basarili!*\n\nUrun: " + urun["ad"] + "\nOdenen: " + str(urun["fiyat"]) + " Puan\nKalan Puan: " + str(data[uid]["puan"]) + "\n\nUrun teslimi icin @" + YENI_ADMIN_USERNAME + " ile iletisime gec!",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+    bot.answer_callback_query(call.id, "Satin alindi!")
 
-    if call.data == "admin_stats":
+@bot.callback_query_handler(func=lambda call: call.data == "puan_durumu")
+def puan_durumu(call):
+    uid = str(call.from_user.id)
+    data = load_users()
+    user_data = data.get(uid, {"puan": 0, "referans_sayisi": 0, "kayit_tarihi": "bilinmiyor"})
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Ana Menu", callback_data="ana_menu_don"))
+    bot.edit_message_text(
+        "*Puan Durumun*\n\nPuan: `" + str(user_data.get("puan", 0)) + "`\nReferans Sayisi: `" + str(user_data.get("referans_sayisi", 0)) + "`\nID: `" + uid + "`\nKayit: " + str(user_data.get("kayit_tarihi", "bilinmiyor")) + "\n\nSatin Aldiklarin: " + str(len(user_data.get("satin_aldiklari", []))) + " urun",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+    bot.answer_callback_query(call.id)
 
-        if uid not in ADMINS:
-            return
+@bot.callback_query_handler(func=lambda call: call.data == "ref_link")
+def ref_link_callback(call):
+    uid = str(call.from_user.id)
+    link = "https://t.me/" + BOT_USERNAME + "?start=" + uid
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton("Paylas", url="https://t.me/share/url?url=" + link),
+        types.InlineKeyboardButton("Ana Menu", callback_data="ana_menu_don")
+    )
+    bot.edit_message_text(
+        "*Senin Referans Linkin:*\n\n`" + link + "`\n\nBu linki paylas, her katilan icin +1 puan kazan!\nNot: Katilanlar gruba katilmazsa puan gelmez.",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+    bot.answer_callback_query(call.id)
 
-        db = load_db()
+@bot.callback_query_handler(func=lambda call: call.data == "ana_menu_don")
+def ana_menu_don(call):
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    ana_menu(call.message.chat.id)
+    bot.answer_callback_query(call.id)
 
-        users = len(db["users"])
+@bot.message_handler(commands=["adminpaneli"])
+def admin_panel(message):
+    uid = str(message.from_user.id)
+    if uid not in ADMINLER:
+        bot.reply_to(message, "Bu komutu kullanma yetkin yok!")
+        return
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    markup.add(
+        types.InlineKeyboardButton("Tum Kullanicilar", callback_data="admin_kullanicilar"),
+        types.InlineKeyboardButton("Puan Siralaması", callback_data="admin_siralama"),
+        types.InlineKeyboardButton("Duyuru Gonder", callback_data="admin_duyuru"),
+        types.InlineKeyboardButton("Son Satin Almalar", callback_data="admin_satinalmalar")
+    )
+    data = load_users()
+    toplam_kullanici = len(data)
+    toplam_puan = sum([k.get("puan", 0) for k in data.values()])
+    bot.send_message(
+        uid,
+        "*Admin Paneli*\n\nToplam Kullanici: " + str(toplam_kullanici) + "\nToplam Puan: " + str(toplam_puan) + "\nAdmin: @" + YENI_ADMIN_USERNAME + "\n\nIslem sec:",
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
 
-        joins = db["stats"]["joins"]
+@bot.callback_query_handler(func=lambda call: call.data == "admin_kullanicilar")
+def admin_kullanicilar(call):
+    uid = str(call.from_user.id)
+    if uid not in ADMINLER:
+        bot.answer_callback_query(call.id, "Yetkin yok!")
+        return
+    data = load_users()
+    mesaj = "*Son Kayit Olan Kullanicilar:*\n\n"
+    kullanicilar = sorted(data.items(), key=lambda x: x[1].get("kayit_tarihi", ""), reverse=True)[:10]
+    for k, v in kullanicilar:
+        mesaj += "@" + v.get("username", "yok") + " | " + v.get("isim", "") + "\n"
+        mesaj += "ID: `" + k + "` | " + str(v.get("puan", 0)) + " puan\n"
+        mesaj += v.get("kayit_tarihi", "") + "\n--------------------\n"
+    mesaj += "\nToplam: " + str(len(data)) + " kullanici"
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Geri", callback_data="admin_geri"))
+    bot.edit_message_text(mesaj, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    bot.answer_callback_query(call.id)
 
-        purchases = db["stats"]["purchases"]
+@bot.callback_query_handler(func=lambda call: call.data == "admin_siralama")
+def admin_siralama(call):
+    uid = str(call.from_user.id)
+    if uid not in ADMINLER:
+        bot.answer_callback_query(call.id, "Yetkin yok!")
+        return
+    data = load_users()
+    kullanicilar = sorted(data.items(), key=lambda x: x[1].get("puan", 0), reverse=True)[:10]
+    mesaj = "*En Zengin 10 Kullanici:*\n\n"
+    for i, (k, v) in enumerate(kullanicilar, 1):
+        mesaj += str(i) + ". @" + v.get("username", "yok") + " | " + str(v.get("puan", 0)) + " puan\n"
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Geri", callback_data="admin_geri"))
+    bot.edit_message_text(mesaj, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    bot.answer_callback_query(call.id)
 
-        text = f"""
-Kullanıcı: {users}
-Toplam giriş: {joins}
-Satın alma: {purchases}
-"""
+@bot.callback_query_handler(func=lambda call: call.data == "admin_satinalmalar")
+def admin_satinalmalar(call):
+    uid = str(call.from_user.id)
+    if uid not in ADMINLER:
+        bot.answer_callback_query(call.id, "Yetkin yok!")
+        return
+    data = load_users()
+    mesaj = "*Son Satin Almalar:*\n\n"
+    sayac = 0
+    for k, v in data.items():
+        for urun in v.get("satin_aldiklari", [])[-3:]:
+            if sayac >= 10:
+                break
+            mesaj += "@" + v.get("username", "yok") + "\n" + urun["urun"] + " | " + str(urun["fiyat"]) + " puan\n" + urun["tarih"] + "\n--------------------\n"
+            sayac += 1
+        if sayac >= 10:
+            break
+    if sayac == 0:
+        mesaj += "Henuz satin alma yok."
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("Geri", callback_data="admin_geri"))
+    bot.edit_message_text(mesaj, call.message.chat.id, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+    bot.answer_callback_query(call.id)
 
-        bot.send_message(uid,text)
+@bot.callback_query_handler(func=lambda call: call.data == "admin_duyuru")
+def admin_duyuru(call):
+    uid = str(call.from_user.id)
+    if uid not in ADMINLER:
+        bot.answer_callback_query(call.id, "Yetkin yok!")
+        return
+    bot.edit_message_text(
+        "*Duyuru Gonderme*\n\nGondermek istedigin metni yaz:\n(Iptal icin /iptal yaz)",
+        call.message.chat.id,
+        call.message.message_id,
+        parse_mode="Markdown"
+    )
+    bot.register_next_step_handler_by_chat_id(call.message.chat.id, duyuru_gonder)
+    bot.answer_callback_query(call.id)
 
-print("BOT ÇALIŞIYOR")
+def duyuru_gonder(message):
+    uid = str(message.from_user.id)
+    if uid not in ADMINLER:
+        bot.reply_to(message, "Yetkin yok!")
+        return
+    if message.text == "/iptal":
+        bot.reply_to(message, "Duyuru iptal edildi.")
+        return
+    duyuru_metni = message.text
+    data = load_users()
+    basarili, basarisiz = 0, 0
+    for user_id in data:
+        try:
+            bot.send_message(user_id, duyuru_metni)
+            basarili += 1
+        except:
+            basarisiz += 1
+    bot.send_message(message.chat.id, "Duyuru Gonderildi!\nBasarili: " + str(basarili) + "\nBasarisiz: " + str(basarisiz))
 
-bot.infinity_polling()
+@bot.callback_query_handler(func=lambda call: call.data == "admin_geri")
+def admin_geri(call):
+    bot.delete_message(call.message.chat.id, call.message.message_id)
+    admin_panel(call.message)
+
+@bot.callback_query_handler(func=lambda call: call.data == "admin_puan_ver")
+def admin_puan_ver(call):
+    bot.answer_callback_query(call.id)
+    msg = bot.send_message(call.message.chat.id, "Puan gonderilecek kullanicinin ID numarasini yazin:")
+    bot.register_next_step_handler(msg, puan_id_al)
+
+def puan_id_al(message):
+    target_id = message.text
+    msg = bot.send_message(message.chat.id, "Gonderilecek puan miktarini rakamla yazin:")
+    bot.register_next_step_handler(msg, lambda m: puan_yukle(m, target_id))
+
+def puan_yukle(message, target_id):
+    try:
+        miktar = int(message.text)
+        data = load_users()
+        if target_id in data:
+            data[target_id]["puan"] = data[target_id].get("puan", 0) + miktar
+            save_users(data)
+            bot.send_message(message.chat.id, target_id + " ID kullaniciya " + str(miktar) + " puan eklendi!")
+            bot.send_message(target_id, "Admin tarafindan hesabiniza " + str(miktar) + " puan eklendi!")
+        else:
+            bot.send_message(message.chat.id, "Kullanici bulunamadi!")
+    except ValueError:
+        bot.send_message(message.chat.id, "Hata: Sadece sayi girin!")
+
+from flask import Flask
+from threading import Thread
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "Bot 7/24 Aktif!"
+
+def run():
+    app.run(host="0.0.0.0", port=8080)
+
+def keep_alive():
+    t = Thread(target=run)
+    t.start()
+
+if __name__ == "__main__":
+    keep_alive()
+    print("Bot aktif basladi...")
+    bot.infinity_polling()
+            
