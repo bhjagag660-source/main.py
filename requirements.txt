@@ -1,3 +1,2 @@
+py TelegramBotAPI
 flask
-pytelegrambotapi
-requests
